@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Chatbot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    #apikey-box, #chat-container {
+      width: 90%;
+      max-width: 600px;
+      margin-bottom: 20px;
+    }
+    #apikey-box {
+      background: #fff;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    #chatbox {
+      height: 450px;
+      overflow-y: auto;
+      background: #fff;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .msg { margin: 6px 0; }
+    .user { color: #1565c0; font-weight: bold; }
+    .bot { color: #2e7d32; }
+    #controls {
+      display: flex;
+      gap: 8px;
+    }
+    input, button {
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+    input {
+      border: 1px solid #ccc;
+      flex: 1;
+    }
+    button {
+      border: none;
+      background-color: #1565c0;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0d47a1; }
+  </style>
+</head>
+<body>
+  <h2>🤖 Gemini Chatbot</h2>
+
+  <!-- API Key input (hidden once saved) -->
+  <div id="apikey-box">
+    <label for="apikey">Enter your Gemini API Key:</label><br>
+    <input type="password" id="apikey" placeholder="sk-..." />
+    <button id="saveKeyBtn">Save Key</button>
+  </div>
+
+  <!-- Chat UI -->
+  <div id="chat-container" style="display:none;">
+    <div id="chatbox"></div>
+    <div id="controls">
+      <input type="text" id="userInput" placeholder="Type your message..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+    let genAI = null;
+    let model = null;
+
+    const chatbox = document.getElementById("chatbox");
+    const inputField = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const saveKeyBtn = document.getElementById("saveKeyBtn");
+    const apikeyInput = document.getElementById("apikey");
+    const apikeyBox = document.getElementById("apikey-box");
+    const chatContainer = document.getElementById("chat-container");
+
+    // Save API key in sessionStorage (not persistent across tabs)
+    function saveApiKey() {
+      const key = apikeyInput.value.trim();
+      if (!key) {
+        alert("Please enter a valid Gemini API key.");
+        return;
+      }
+      sessionStorage.setItem("GEMINI_API_KEY", key);
+      initGemini(key);
+      apikeyBox.style.display = "none";
+      chatContainer.style.display = "block";
+    }
+
+    // Initialize Gemini client with the given API key
+    function initGemini(key) {
+      try {
+        genAI = new GoogleGenerativeAI(key);
+        model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      } catch (err) {
+        alert("Error initializing Gemini: " + err.message);
+      }
+    }
+
+    async function sendMessage() {
+      const userText = inputField.value.trim();
+      if (!userText) return;
+
+      chatbox.innerHTML += `<div class="msg user">You: ${userText}</div>`;
+      inputField.value = "";
+      chatbox.scrollTop = chatbox.scrollHeight;
+
+      try {
+        const result = await model.generateContent(userText);
+        const reply = result.response.text();
+        chatbox.innerHTML += `<div class="msg bot">Gemini: ${reply}</div>`;
+      } catch (err) {
+        chatbox.innerHTML += `<div class="msg bot">⚠️ Error: ${err.message}</div>`;
+      }
+
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    // Attach events
+    saveKeyBtn.addEventListener("click", saveApiKey);
+    sendBtn.addEventListener("click", sendMessage);
+    inputField.addEventListener("keypress", e => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    // If key already in session, auto-login
+    const storedKey = sessionStorage.getItem("GEMINI_API_KEY");
+    if (storedKey) {
+      initGemini(storedKey);
+      apikeyBox.style.display = "none";
+      chatContainer.style.display = "block";
+    }
+  </script>
+</body>
+</html>
